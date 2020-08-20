@@ -12,6 +12,9 @@ import scala.util.Random
 // https://florian.github.io/reservoir-sampling/
 // https://gist.github.com/mskimm/87e877bd21711dcf1fb8e4a2deed032d
 // https://ballsandbins.wordpress.com/2014/04/13/distributedparallel-reservoir-sampling/
+// https://arxiv.org/pdf/1012.0256.pdf
+// http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=BEB1FE0AB3C0129B822D2CE5EABBFD42?doi=10.1.1.591.4194&rep=rep1&type=pdf
+// http://utopia.duth.gr/pefraimi/projects/WRS/index.html
 
 case class Reservoir[A](
   sampleSize: Int,
@@ -53,26 +56,74 @@ case class Reservoir[A](
 
       val leftPrevProb: Double = math.min(sampleSize / poolSize.toDouble, 1.0)
       val leftCurrProb: Double = (sampleSize / total.toDouble) / leftPrevProb
+
+      val rightPrevProb: Double = math.min(other.sampleSize / other.poolSize.toDouble, 1.0)
+      val rightCurrProb: Double = (other.sampleSize / total.toDouble) / rightPrevProb
+
+      // println("sum:")
+      // println(leftCurrProb + rightCurrProb)
+      val leftNormProb = leftPrevProb / (leftPrevProb + rightPrevProb)
+      val rightNormProb = rightPrevProb / (leftPrevProb + rightPrevProb)
+
+      // priors:
+      val leftProb: Double = left.size / poolSize // 1.0
+      val rightProb: Double = right.size / other.poolSize // 1.0
+
       //                5 / 6
       // val leftPortion = left.size / total.toDouble * 1 /
       //                1 / 1
       // val rightPortion = other.poolSize / total.toDouble
 
-      // println(s"merging $left ($poolSize) - $leftPortion vs $right (${other.poolSize}) - $rightPortion")
+      // println(s"merging $left ($poolSize) - $leftProb vs $right (${other.poolSize}) - $rightProb")
       val alt = new scala.collection.mutable.ListBuffer[A]
 
-      val leftPool = Random.shuffle(left)
-      val rightPool = Random.shuffle(right)
+      val leftPool = rand.shuffle(left)
+      val rightPool = rand.shuffle(right)
       var leftIdx = 0
       var rightIdx = 0
 
+      // assert((rightProb + leftProb - 1.0).abs < 0.0001, s"expected prob eql 1.0 ${rightProb + leftProb}")
+      // while (alt.size < sampleSize || (leftIdx < leftPool.size - 1 && rightIdx < rightPool.size - 1)) {
+      //   val r = rand.nextDouble
+      //   if (r < normLeftProb && leftIdx < left.size) {
+      //     alt += leftPool(leftIdx)
+      //     leftIdx += 1
+      //   } else if (rightIdx < right.size){
+      //     alt += rightPool(rightIdx)
+      //     rightIdx += 1
+      //   }
+      // }
+
+      println("leftprev")
+      println(leftPrevProb)
+      println("rightprev")
+      println(rightPrevProb)
+      println("leftcurr")
+      println(leftCurrProb)
+      println("rightcurr")
+      println(rightCurrProb)
+      println("leftNorm")
+      println(leftNormProb)
+      println("rightNorm")
+      println(rightNormProb)
+
       (0 until sampleSize).foreach { _ =>
-        if (rand.nextDouble > leftCurrProb && rightIdx < right.size) {
+        if (leftIdx >= left.size) {
           alt += rightPool(rightIdx)
           rightIdx += 1
-        } else if (leftIdx < left.size) {
+        } else if (rightIdx >= right.size) {
           alt += leftPool(leftIdx)
           leftIdx += 1
+        } else if (rand.nextDouble < leftNormProb) {
+          // println("pull left")
+          // println(leftPool)
+          alt += leftPool(leftIdx)
+          leftIdx += 1
+        } else {
+          // println("pull right")
+          // println(rightPool)
+          alt += rightPool(rightIdx)
+          rightIdx += 1
         }
         // if (rand.nextDouble < leftCurrProb && leftIdx < left.size) {
         //   alt += leftPool(leftIdx)
