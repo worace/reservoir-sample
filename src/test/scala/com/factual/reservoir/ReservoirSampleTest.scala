@@ -70,7 +70,7 @@ class ReservoirSampleTest extends munit.FunSuite {
     assertEquals(Set("b", "c", "f"), r5.merge(r6).samples.toSet)
   }
 
-  test("expected distribution") {
+  test("expected distribution".only) {
     def alphaTest: Reservoir[String] = {
       alpha
         .take(6)
